@@ -214,9 +214,153 @@ def get_stock_data(company_or_ticker: str) -> str:
     return format_stock_data(data)
 
 
+@tool
+def get_historical_stock_data(company_or_ticker: str, period: str = "1mo", date: str = None) -> str:
+    """
+    Fetch historical stock price data for a company or ticker symbol.
+    Use this tool when user asks about past/historical stock prices, price history,
+    or stock values at a specific date or time period.
+    
+    Args:
+        company_or_ticker: Company name OR stock ticker symbol. Examples:
+            - "Sony", "AAPL", "Volvo", "ERIC-B.ST", "6758.T"
+        period: Time period for historical data. Options:
+            - "1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"
+            - Default is "1mo" (1 month)
+        date: Specific date to get stock price (format: "YYYY-MM-DD" or "YYYY-MM" or "December 2024")
+            - If provided, returns the stock price around that date
+    
+    Returns:
+        Historical stock prices with open, high, low, close, volume.
+        Foreign stocks show both native currency and SEK equivalent.
+    """
+    try:
+        import yfinance as yf
+        from datetime import datetime, timedelta
+        
+        # Resolve company name to ticker
+        ticker = resolve_ticker(company_or_ticker)
+        stock = yf.Ticker(ticker)
+        
+        # Get stock info for currency
+        info = stock.info
+        currency = info.get("currency", "SEK")
+        stock_name = info.get("longName", info.get("shortName", ticker))
+        
+        # Handle specific date request
+        if date:
+            # Parse various date formats
+            parsed_date = None
+            
+            # Try different date formats
+            date_formats = [
+                "%Y-%m-%d",  # 2024-12-15
+                "%Y-%m",     # 2024-12
+                "%B %Y",     # December 2024
+                "%b %Y",     # Dec 2024
+                "%Y/%m/%d",  # 2024/12/15
+                "%d-%m-%Y",  # 15-12-2024
+            ]
+            
+            for fmt in date_formats:
+                try:
+                    parsed_date = datetime.strptime(date, fmt)
+                    break
+                except ValueError:
+                    continue
+            
+            # Handle month-year format (get the whole month)
+            if parsed_date:
+                if len(date) <= 8 or "202" in date and len(date.split("-")) == 2:
+                    # It's a month-year format, get the whole month
+                    start_date = parsed_date.replace(day=1)
+                    # Get end of month
+                    if parsed_date.month == 12:
+                        end_date = parsed_date.replace(year=parsed_date.year + 1, month=1, day=1)
+                    else:
+                        end_date = parsed_date.replace(month=parsed_date.month + 1, day=1)
+                else:
+                    # Specific date - get a week around it
+                    start_date = parsed_date - timedelta(days=3)
+                    end_date = parsed_date + timedelta(days=4)
+                
+                hist = stock.history(start=start_date.strftime("%Y-%m-%d"), 
+                                    end=end_date.strftime("%Y-%m-%d"))
+            else:
+                # Couldn't parse date, use period instead
+                hist = stock.history(period=period)
+        else:
+            # Use period
+            hist = stock.history(period=period)
+        
+        if hist.empty:
+            return f"No historical data found for {ticker}"
+        
+        # Get exchange rate for foreign currencies
+        is_foreign = currency != "SEK"
+        exchange_rate = None
+        if is_foreign:
+            exchange_rate = get_exchange_rate_to_sek(currency)
+        
+        currency_symbol = {
+            "SEK": "kr ", "NOK": "kr ", "DKK": "kr ",
+            "EUR": "€", "USD": "$", "JPY": "¥", "GBP": "£",
+            "CHF": "CHF ", "CNY": "¥", "HKD": "HK$", "KRW": "₩",
+        }.get(currency, currency + " ")
+        
+        def format_price(price):
+            if is_foreign and exchange_rate:
+                sek_price = price * exchange_rate
+                return f"{currency_symbol}{price:,.2f} (~{sek_price:,.2f} kr SEK)"
+            return f"{currency_symbol}{price:,.2f}"
+        
+        # Build response
+        lines = [
+            f"**Historical Stock Data: {stock_name}** ({ticker})",
+            f"Currency: {currency}" + (f" (1 {currency} ≈ {exchange_rate:.4f} SEK)" if is_foreign and exchange_rate else ""),
+            ""
+        ]
+        
+        # Show summary stats
+        lines.extend([
+            "**Period Summary:**",
+            f"  • Start: {hist.index[0].strftime('%Y-%m-%d')} - Close: {format_price(hist['Close'].iloc[0])}",
+            f"  • End: {hist.index[-1].strftime('%Y-%m-%d')} - Close: {format_price(hist['Close'].iloc[-1])}",
+            f"  • Period High: {format_price(hist['High'].max())}",
+            f"  • Period Low: {format_price(hist['Low'].min())}",
+            f"  • Avg Volume: {hist['Volume'].mean():,.0f}",
+            ""
+        ])
+        
+        # Calculate change
+        start_price = hist['Close'].iloc[0]
+        end_price = hist['Close'].iloc[-1]
+        change = end_price - start_price
+        change_pct = (change / start_price) * 100
+        change_symbol = "📈" if change >= 0 else "📉"
+        
+        lines.append(f"**Change:** {change_symbol} {format_price(abs(change))} ({change_pct:+.2f}%)")
+        lines.append("")
+        
+        # Show recent data points (last 10 or all if less)
+        num_rows = min(10, len(hist))
+        lines.append(f"**Recent Prices (last {num_rows} trading days):**")
+        
+        for idx in hist.tail(num_rows).itertuples():
+            date_str = idx.Index.strftime('%Y-%m-%d')
+            lines.append(f"  • {date_str}: {format_price(idx.Close)} (Vol: {idx.Volume:,.0f})")
+        
+        return "\n".join(lines)
+        
+    except ImportError:
+        return "yfinance not installed. Run: pip install yfinance"
+    except Exception as e:
+        return f"Error fetching historical data: {str(e)}"
+
+
 def create_stock_tool():
-    """Create the stock data tool for agent use."""
-    return get_stock_data
+    """Create the stock data tools for agent use."""
+    return [get_stock_data, get_historical_stock_data]
 
 
 # Common ticker mappings for convenience

@@ -94,10 +94,14 @@ class CommentGeneratorAgent:
                         create_extract_numbers_tool()
                     ]
                     
-                    # Add stock tool
+                    # Add stock tools (current + historical)
                     try:
                         from agents.tools.stock_tools import create_stock_tool
-                        self._tools.append(create_stock_tool())
+                        stock_tools = create_stock_tool()
+                        if isinstance(stock_tools, list):
+                            self._tools.extend(stock_tools)
+                        else:
+                            self._tools.append(stock_tools)
                     except ImportError as e:
                         print(f"Warning: Stock tool not available: {e}")
                     
@@ -160,8 +164,11 @@ Available tools:
 - compare_documents: Compare metrics across multiple documents
 - calculate_metrics: Perform financial calculations
 - extract_numbers: Extract numeric values from text
-- get_stock_data: Fetch real-time stock market data (price, P/E, market cap, etc.)
-  Use tickers like: AAPL, MSFT, 7203.T (Toyota), 6758.T (Sony)
+- get_stock_data: Fetch CURRENT/real-time stock market data (price, P/E, market cap, etc.)
+  Use for: current price, today's data, live market info
+- get_historical_stock_data: Fetch PAST/historical stock prices for any date or period
+  Use for: past prices, historical data, "what was the price in December 2024", price history
+  Accepts date like "2024-12", "December 2024", "2024-12-15" or periods like "1mo", "1y", "5y"
 - fetch_url_content: Fetch content from a URL on-the-fly using Docling (no storage)
   Use this when user provides a URL in their message and wants info from that page
 
@@ -170,9 +177,10 @@ CRITICAL WORKFLOW - Follow this for EVERY user question:
    (This searches BOTH primary documents AND secondary sources like attached URLs/files)
 2. Review the search results - they include content from all attached sources
 3. If user provides a URL in their message, use fetch_url_content to get its content
-4. If user asks about stock prices or market data, use get_stock_data
-5. If needed, use other tools for more detail
-6. Provide a comprehensive answer based on the retrieved data
+4. If user asks about CURRENT stock prices or market data, use get_stock_data
+5. If user asks about PAST/HISTORICAL stock prices, use get_historical_stock_data with the date/period
+6. If needed, use other tools for more detail
+7. Provide a comprehensive answer based on the retrieved data
 
 URL HANDLING:
 - If user includes a URL (https://...) in their message, use fetch_url_content tool
