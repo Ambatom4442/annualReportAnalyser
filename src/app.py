@@ -930,16 +930,76 @@ def render_generate_view():
                 else:
                     st.session_state[quick_chat_key] = []
             
-            # Chat messages container - taller for 40% width
-            chat_container = st.container(height=500)
+            # Initialize selection state for Quick Chat
+            if "quick_selected_messages" not in st.session_state:
+                st.session_state.quick_selected_messages = set()
+            if "quick_selection_mode" not in st.session_state:
+                st.session_state.quick_selection_mode = False
+            
+            # Selection mode toggle and actions (only show if there are messages)
+            if st.session_state[quick_chat_key]:
+                sel_col1, sel_col2 = st.columns([1, 1])
+                
+                with sel_col1:
+                    selection_mode = st.toggle(
+                        "📋 Select", 
+                        value=st.session_state.quick_selection_mode,
+                        help="Select messages for research summary",
+                        key="quick_chat_select_toggle"
+                    )
+                    if selection_mode != st.session_state.quick_selection_mode:
+                        st.session_state.quick_selection_mode = selection_mode
+                        st.rerun()
+                
+                with sel_col2:
+                    if st.session_state.quick_selection_mode and st.session_state.quick_selected_messages:
+                        selected_count = len(st.session_state.quick_selected_messages)
+                        if st.button(f"📝 Summary ({selected_count})", key="quick_create_summary", use_container_width=True):
+                            # Get selected messages
+                            messages = st.session_state[quick_chat_key]
+                            selected_msgs = [
+                                messages[i] for i in sorted(st.session_state.quick_selected_messages)
+                                if i < len(messages)
+                            ]
+                            
+                            with st.spinner("🤖 Creating summary..."):
+                                # Generate summary
+                                from ui.chat_component import generate_research_summary
+                                summary = generate_research_summary(selected_msgs, agent)
+                                st.session_state.research_summary = summary
+                                st.success("✅ Summary created!")
+            
+            # Chat messages container
+            chat_container = st.container(height=400)
             
             with chat_container:
                 if not st.session_state[quick_chat_key]:
                     st.info("💡 Ask questions about the document while working on your comment!")
                 else:
-                    for msg in st.session_state[quick_chat_key]:
-                        with st.chat_message(msg["role"]):
-                            st.markdown(msg["content"])
+                    for idx, msg in enumerate(st.session_state[quick_chat_key]):
+                        if st.session_state.quick_selection_mode:
+                            # Selection mode: show checkboxes
+                            msg_col1, msg_col2 = st.columns([1, 12])
+                            
+                            with msg_col1:
+                                is_selected = idx in st.session_state.quick_selected_messages
+                                if st.checkbox(
+                                    "", 
+                                    value=is_selected, 
+                                    key=f"quick_sel_msg_{idx}",
+                                    label_visibility="collapsed"
+                                ):
+                                    st.session_state.quick_selected_messages.add(idx)
+                                else:
+                                    st.session_state.quick_selected_messages.discard(idx)
+                            
+                            with msg_col2:
+                                with st.chat_message(msg["role"]):
+                                    st.markdown(msg["content"])
+                        else:
+                            # Normal mode
+                            with st.chat_message(msg["role"]):
+                                st.markdown(msg["content"])
             
             # Chat input
             if prompt := st.chat_input("Ask about document...", key="floating_chat_input"):
@@ -975,6 +1035,8 @@ def render_generate_view():
             if st.session_state[quick_chat_key]:
                 if st.button("🗑️ Clear Chat", key="clear_floating_chat", use_container_width=True):
                     st.session_state[quick_chat_key] = []
+                    st.session_state.quick_selected_messages = set()
+                    st.session_state.quick_selection_mode = False
                     if hasattr(agent, 'clear_memory'):
                         agent.clear_memory()
                     # Clear from database
