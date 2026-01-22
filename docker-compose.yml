@@ -1,0 +1,42 @@
+# =============================================================================
+# Docker Compose - Local Development & Testing
+# =============================================================================
+# Usage:
+#   docker-compose up --build        # Build and run
+#   docker-compose up -d             # Run in background
+#   docker-compose logs -f           # View logs
+#   docker-compose down              # Stop and remove
+# =============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: annual-report-analyser
+    ports:
+      - "8501:8501"
+    environment:
+      # API Keys - Pass from host environment or .env file
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      # Application settings
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - PYTHONPATH=/app/src
+    volumes:
+      # Persist data across container restarts
+      - app-data:/app/.data
+      # Mount .env file if exists (for local dev)
+      # - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  app-data:
+    driver: local
