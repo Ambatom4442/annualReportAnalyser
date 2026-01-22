@@ -57,5 +57,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 CMD ["uv", "run", "streamlit", "run", "src/app.py", \
     "--server.port=8501", \
     "--server.address=0.0.0.0", \
+    "--server.baseUrlPath=/ARA", \
     "--server.headless=true", \
     "--browser.gatherUsageStats=false"]
