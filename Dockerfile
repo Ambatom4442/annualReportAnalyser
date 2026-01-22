@@ -47,14 +47,18 @@ RUN useradd --create-home --shell /bin/bash appuser && \
 USER appuser
 
 # Expose Streamlit port
+# Set working directory to src for execution
+WORKDIR /app/src
+
+# Expose Streamlit port
 EXPOSE 8501
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8501/_stcore/health || exit 1
 
-# Run the application using uv
-CMD ["uv", "run", "streamlit", "run", "src/app.py", \
+# Run the application using uv (working directory is /app/src)
+CMD ["uv", "run", "streamlit", "run", "app.py", \
     "--server.port=8501", \
     "--server.address=0.0.0.0", \
     "--server.baseUrlPath=/ARA", \
