@@ -181,7 +181,7 @@ def format_stock_data(data: dict) -> str:
         f"  • 200-Day: {format_with_sek(data.get('200_day_avg'))}",
         "",
         f"**Volume:** {format_number(data.get('volume'))} (Avg: {format_number(data.get('avg_volume'))})",
-    ]
+    ])
     
     if data.get("description"):
         lines.extend(["", "**About:**", data["description"][:300] + "..."])
