@@ -170,6 +170,31 @@ def render_dynamic_parameter_ui(
     
     st.divider()
     
+    # Research Summary Section (if available from chat)
+    research_summary = st.session_state.get("research_summary", "")
+    
+    if research_summary:
+        st.subheader("📊 Research Summary")
+        st.info("💡 This summary was generated from your chat research. It will be included in comment generation.")
+        
+        with st.expander("View Research Summary", expanded=True):
+            st.markdown(research_summary)
+        
+        use_research = st.checkbox(
+            "Include research summary in comment generation", 
+            value=True,
+            help="Uncheck to exclude the research summary from comment generation"
+        )
+        
+        if st.button("🗑️ Clear Research Summary", key="clear_research_summary"):
+            st.session_state.research_summary = ""
+            st.session_state.selected_messages = set()
+            st.rerun()
+        
+        st.divider()
+    else:
+        use_research = False
+    
     # Custom Instructions (required as per user request)
     st.subheader("✨ Custom Instructions")
     custom_instructions = st.text_area(
@@ -185,6 +210,17 @@ def render_dynamic_parameter_ui(
         help="These instructions will guide the AI in generating your comment"
     )
     
+    # Combine research summary with custom instructions if enabled
+    if use_research and research_summary:
+        combined_instructions = f"""RESEARCH FINDINGS FROM CHAT:
+{research_summary}
+
+USER INSTRUCTIONS:
+{custom_instructions if custom_instructions else "No additional instructions."}"""
+        final_instructions = combined_instructions
+    else:
+        final_instructions = custom_instructions
+    
     st.divider()
     
     # Generate button
@@ -198,7 +234,7 @@ def render_dynamic_parameter_ui(
                 tone=tone,
                 length=length,
                 time_period=time_period,
-                custom_instructions=custom_instructions if custom_instructions else None,
+                custom_instructions=final_instructions if final_instructions else None,
                 # Store selections in a way the agent can use
                 compare_benchmark=fund_info.get("benchmark") is not None,
                 include_positive_contributors=any(

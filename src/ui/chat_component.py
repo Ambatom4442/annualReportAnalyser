@@ -5,6 +5,58 @@ import streamlit as st
 from typing import Optional, List, Dict, Any
 
 
+def init_research_selection_state():
+    """Initialize session state for research message selection."""
+    if "selected_messages" not in st.session_state:
+        st.session_state.selected_messages = set()
+    if "research_summary" not in st.session_state:
+        st.session_state.research_summary = ""
+    if "selection_mode" not in st.session_state:
+        st.session_state.selection_mode = False
+
+
+def generate_research_summary(messages: List[Dict[str, str]], agent: Any) -> str:
+    """
+    Generate a summary from selected chat messages using AI.
+    
+    Args:
+        messages: List of selected messages with role and content
+        agent: CommentGeneratorAgent for summarization
+    
+    Returns:
+        Summarized research findings
+    """
+    if not messages:
+        return ""
+    
+    # Build the conversation to summarize
+    conversation_text = ""
+    for msg in messages:
+        role = "User" if msg["role"] == "user" else "Assistant"
+        conversation_text += f"{role}: {msg['content']}\n\n"
+    
+    # Create summarization prompt
+    summary_prompt = f"""Summarize the key findings and data points from this research conversation into concise bullet points that can be used for generating a financial comment.
+
+Focus on:
+- Specific numbers, percentages, and metrics
+- Key insights about companies, funds, or markets
+- Important dates and time periods
+- Any comparisons or trends identified
+
+Research Conversation:
+{conversation_text}
+
+Provide a structured summary with the most important facts:"""
+    
+    try:
+        # Use the agent to generate summary
+        summary = agent.chat(summary_prompt, doc_id=None)
+        return summary
+    except Exception as e:
+        return f"Error generating summary: {str(e)}"
+
+
 def render_chat_interface(
     agent: Any,
     current_doc_id: Optional[str] = None,
@@ -25,6 +77,9 @@ def render_chat_interface(
         chat_store: ChatStore for persisting chat history
     """
     st.subheader("💬 Chat with Documents")
+    
+    # Initialize states
+    init_research_selection_state()
     
     # Initialize chat history - load from database if available
     chat_key = f"chat_messages_{current_doc_id}" if current_doc_id else "chat_messages"
@@ -52,13 +107,68 @@ def render_chat_interface(
         except ImportError:
             pass
     
-    # Display chat history
+    # Selection mode toggle and actions
+    if st.session_state[chat_key]:
+        sel_col1, sel_col2, sel_col3 = st.columns([2, 2, 2])
+        
+        with sel_col1:
+            selection_mode = st.toggle(
+                "📋 Select Messages", 
+                value=st.session_state.selection_mode,
+                help="Enable to select messages for research summary"
+            )
+            if selection_mode != st.session_state.selection_mode:
+                st.session_state.selection_mode = selection_mode
+                st.rerun()
+        
+        with sel_col2:
+            if st.session_state.selection_mode:
+                selected_count = len(st.session_state.selected_messages)
+                st.caption(f"✅ {selected_count} message(s) selected")
+        
+        with sel_col3:
+            if st.session_state.selection_mode and st.session_state.selected_messages:
+                if st.button("📝 Create Summary", type="primary", use_container_width=True):
+                    # Get selected messages
+                    messages = st.session_state[chat_key]
+                    selected_msgs = [
+                        messages[i] for i in sorted(st.session_state.selected_messages)
+                        if i < len(messages)
+                    ]
+                    
+                    with st.spinner("🤖 Generating research summary..."):
+                        summary = generate_research_summary(selected_msgs, agent)
+                        st.session_state.research_summary = summary
+                        st.success("✅ Summary created! Go to Generate Comment to use it.")
+    
+    # Display chat history with optional selection
     if show_history and st.session_state[chat_key]:
         chat_container = st.container(height=400)
         with chat_container:
-            for msg in st.session_state[chat_key]:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
+            for idx, msg in enumerate(st.session_state[chat_key]):
+                if st.session_state.selection_mode:
+                    # Selection mode: show checkboxes
+                    msg_col1, msg_col2 = st.columns([1, 15])
+                    
+                    with msg_col1:
+                        is_selected = idx in st.session_state.selected_messages
+                        if st.checkbox(
+                            "", 
+                            value=is_selected, 
+                            key=f"sel_msg_{idx}",
+                            label_visibility="collapsed"
+                        ):
+                            st.session_state.selected_messages.add(idx)
+                        else:
+                            st.session_state.selected_messages.discard(idx)
+                    
+                    with msg_col2:
+                        with st.chat_message(msg["role"]):
+                            st.markdown(msg["content"])
+                else:
+                    # Normal mode: just show messages
+                    with st.chat_message(msg["role"]):
+                        st.markdown(msg["content"])
     
     # Input area with attachment button
     col_attach, col_input = st.columns([1, 15])
@@ -126,17 +236,29 @@ def render_chat_interface(
                     })
     
     # Bottom controls - Clear Chat button
-    if st.button("🗑️ Clear Chat"):
-        st.session_state[chat_key] = []
-        if hasattr(agent, 'clear_memory'):
-            agent.clear_memory()
-        # Clear from database
-        if chat_store and current_doc_id:
-            chat_store.clear_history(current_doc_id, chat_type="main")
-        # Also reset the agent in session state to get fresh memory
-        if "chat_agent" in st.session_state:
-            del st.session_state.chat_agent
-        st.rerun()
+    col_clear1, col_clear2 = st.columns([1, 1])
+    
+    with col_clear1:
+        if st.button("🗑️ Clear Chat"):
+            st.session_state[chat_key] = []
+            st.session_state.selected_messages = set()
+            st.session_state.selection_mode = False
+            if hasattr(agent, 'clear_memory'):
+                agent.clear_memory()
+            # Clear from database
+            if chat_store and current_doc_id:
+                chat_store.clear_history(current_doc_id, chat_type="main")
+            # Also reset the agent in session state to get fresh memory
+            if "chat_agent" in st.session_state:
+                del st.session_state.chat_agent
+            st.rerun()
+    
+    with col_clear2:
+        if st.session_state.research_summary:
+            if st.button("🗑️ Clear Research Summary"):
+                st.session_state.research_summary = ""
+                st.session_state.selected_messages = set()
+                st.rerun()
     
     # Manage Secondary Sources - full width expander
     if secondary_store and current_doc_id:
