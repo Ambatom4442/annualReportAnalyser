@@ -1,0 +1,61 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev-debug.log
+
+# Dependency directories
+node_modules/
+
+# Environment variables - NEVER COMMIT
+.env
+.env.local
+.env.*.local
+
+# Local data and databases
+.data/
+*.db
+*.sqlite
+*.sqlite3
+
+# ChromaDB vector store
+chroma_db/
+.chroma/
+
+# Task Master files
+.taskmaster/
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Playwright browsers cache
+.playwright/

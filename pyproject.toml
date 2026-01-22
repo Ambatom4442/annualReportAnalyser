@@ -1,0 +1,36 @@
+[project]
+name = "annualreportanalyser"
+version = "0.2.0"
+description = "AI-powered annual report analyzer with RAG and persistent storage"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.40.0",
+    "pdfplumber>=0.11.0",
+    "pymupdf>=1.24.0",
+    "langchain>=0.3.27,<1.0",
+    "langchain-core>=0.3.78,<1.0",
+    "langchain-openai>=0.2.0,<1.0",
+    "langchain-community>=0.3.0,<1.0",
+    "langchain-google-genai>=2.0.0,<3.0.0",
+    "google-generativeai>=0.8.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pillow>=10.0.0",
+    # RAG dependencies
+    "chromadb>=0.4.0",
+    "langchain-chroma>=0.1.0",
+    # Docling for document processing and hybrid chunking
+    "docling>=2.0.0",
+    # Secondary sources support
+    "yfinance>=0.2.0", # Stock data API
+    "trafilatura>=1.6.0", # Web content extraction
+    "beautifulsoup4>=4.12.0", # HTML parsing fallback
+    "requests>=2.31.0", # HTTP requests
+    "playwright>=1.57.0",
+    "html2text>=2025.4.15",
+    "nest-asyncio>=1.6.0",
+]
+
+[project.scripts]
+app = "src.app:main"
