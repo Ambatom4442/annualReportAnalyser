@@ -139,7 +139,8 @@ def render_chat_interface(
                     with st.spinner("🤖 Generating research summary..."):
                         summary = generate_research_summary(selected_msgs, agent)
                         st.session_state.research_summary = summary
-                        st.success("✅ Summary created! Go to Generate Comment to use it.")
+                    st.success("✅ Summary created! View it in Generate Comment step")
+                    st.rerun()
     
     # Display chat history with optional selection
     if show_history and st.session_state[chat_key]:

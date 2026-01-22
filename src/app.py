@@ -935,6 +935,9 @@ def render_generate_view():
                 st.session_state.quick_selected_messages = set()
             if "quick_selection_mode" not in st.session_state:
                 st.session_state.quick_selection_mode = False
+            # Initialize research summary state
+            if "research_summary" not in st.session_state:
+                st.session_state.research_summary = ""
             
             # Selection mode toggle and actions (only show if there are messages)
             if st.session_state[quick_chat_key]:
@@ -962,12 +965,19 @@ def render_generate_view():
                                 if i < len(messages)
                             ]
                             
-                            with st.spinner("🤖 Creating summary..."):
-                                # Generate summary
-                                from ui.chat_component import generate_research_summary
-                                summary = generate_research_summary(selected_msgs, agent)
-                                st.session_state.research_summary = summary
-                                st.success("✅ Summary created!")
+                            if selected_msgs:
+                                with st.spinner("🤖 Creating summary..."):
+                                    # Generate summary
+                                    from ui.chat_component import generate_research_summary
+                                    summary = generate_research_summary(selected_msgs, agent)
+                                    if summary:
+                                        st.session_state.research_summary = summary
+                                        st.success("✅ Summary created! View it in Step 3 - Generate Comment")
+                                    else:
+                                        st.error("Failed to generate summary - no content returned")
+                                st.rerun()
+                            else:
+                                st.warning("No messages selected")
             
             # Chat messages container
             chat_container = st.container(height=400)
