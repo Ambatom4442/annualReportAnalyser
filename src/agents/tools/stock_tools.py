@@ -436,13 +436,56 @@ COMMON_TICKERS = {
     "kone": "KNEBV.HE",
     "fortum": "FORTUM.HE",
     
-    # Major international for reference
+    # Major international companies (prevent .ST suffix)
     "apple": "AAPL",
     "microsoft": "MSFT",
     "google": "GOOGL",
+    "alphabet": "GOOGL",
     "amazon": "AMZN",
     "tesla": "TSLA",
     "nvidia": "NVDA",
+    "meta": "META",
+    "facebook": "META",
+    "netflix": "NFLX",
+    
+    # Japanese companies (Tokyo Stock Exchange - .T suffix)
+    "sony": "6758.T",
+    "toyota": "7203.T",
+    "honda": "7267.T",
+    "nintendo": "7974.T",
+    "softbank": "9984.T",
+    "mitsubishi": "8058.T",
+    "panasonic": "6752.T",
+    "hitachi": "6501.T",
+    "canon": "7751.T",
+    "nikon": "7731.T",
+    "suzuki": "7269.T",
+    "mazda": "7261.T",
+    "nissan": "7201.T",
+    "subaru": "7270.T",
+    "yamaha": "7951.T",
+    "fujitsu": "6702.T",
+    "sharp": "6753.T",
+    "toshiba": "6502.T",
+    "sony group": "6758.T",
+    
+    # Other major international
+    "samsung": "005930.KS",  # Korea
+    "alibaba": "BABA",
+    "tencent": "0700.HK",
+    "hsbc": "HSBA.L",
+    "shell": "SHEL.L",
+    "bp": "BP.L",
+    "nestle": "NESN.SW",
+    "novartis": "NOVN.SW",
+    "roche": "ROG.SW",
+    "lvmh": "MC.PA",
+    "asml": "ASML.AS",
+    "volkswagen": "VOW3.DE",
+    "bmw": "BMW.DE",
+    "mercedes": "MBG.DE",
+    "siemens": "SIE.DE",
+    "sap": "SAP.DE",
 }
 
 
