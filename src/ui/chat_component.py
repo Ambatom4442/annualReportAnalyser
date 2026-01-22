@@ -154,7 +154,7 @@ def render_chat_interface(
                     with msg_col1:
                         is_selected = idx in st.session_state.selected_messages
                         if st.checkbox(
-                            "", 
+                            "Select message", 
                             value=is_selected, 
                             key=f"sel_msg_{idx}",
                             label_visibility="collapsed"

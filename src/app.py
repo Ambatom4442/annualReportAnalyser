@@ -994,7 +994,7 @@ def render_generate_view():
                             with msg_col1:
                                 is_selected = idx in st.session_state.quick_selected_messages
                                 if st.checkbox(
-                                    "", 
+                                    "Select message", 
                                     value=is_selected, 
                                     key=f"quick_sel_msg_{idx}",
                                     label_visibility="collapsed"
