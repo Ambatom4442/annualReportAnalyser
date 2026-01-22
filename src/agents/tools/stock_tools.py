@@ -6,6 +6,58 @@ from typing import Optional, List
 from langchain.tools import tool
 
 
+def get_exchange_rate_to_sek(from_currency: str) -> Optional[float]:
+    """
+    Get exchange rate from a currency to SEK.
+    
+    Args:
+        from_currency: Source currency code (e.g., "USD", "JPY", "EUR")
+    
+    Returns:
+        Exchange rate (1 from_currency = X SEK), or None if unavailable
+    """
+    if from_currency == "SEK":
+        return 1.0
+    
+    try:
+        import yfinance as yf
+        
+        # yfinance format for currency pairs: XXXSEK=X
+        pair = f"{from_currency}SEK=X"
+        ticker = yf.Ticker(pair)
+        
+        # Try to get current price
+        hist = ticker.history(period="1d")
+        if not hist.empty:
+            return hist['Close'].iloc[-1]
+        
+        # Fallback to info
+        info = ticker.info
+        rate = info.get("regularMarketPrice") or info.get("previousClose")
+        if rate:
+            return rate
+            
+    except Exception:
+        pass
+    
+    # Fallback approximate rates (as of 2024 - should be updated periodically)
+    fallback_rates = {
+        "USD": 10.5,
+        "EUR": 11.3,
+        "GBP": 13.2,
+        "JPY": 0.070,  # 1 JPY ≈ 0.07 SEK
+        "NOK": 0.98,
+        "DKK": 1.52,
+        "CHF": 11.8,
+        "CAD": 7.7,
+        "AUD": 6.8,
+        "CNY": 1.45,
+        "HKD": 1.35,
+        "KRW": 0.0078,
+    }
+    return fallback_rates.get(from_currency)
+
+
 def get_stock_info(ticker: str) -> dict:
     """
     Fetch stock data using yfinance.
@@ -50,7 +102,7 @@ def get_stock_info(ticker: str) -> dict:
 
 
 def format_stock_data(data: dict) -> str:
-    """Format stock data dictionary as readable string."""
+    """Format stock data dictionary as readable string with SEK conversion for foreign stocks."""
     if "error" in data:
         return f"Error fetching stock data: {data['error']}"
     
@@ -65,10 +117,17 @@ def format_stock_data(data: dict) -> str:
             elif n >= 1_000_000:
                 return f"{prefix}{n/1_000_000:.2f}M{suffix}"
             else:
-                return f"{prefix}{n:.2f}{suffix}"
+                return f"{prefix}{n:,.2f}{suffix}"
         return f"{prefix}{n}{suffix}"
     
     currency = data.get("currency", "SEK")
+    is_foreign = currency != "SEK"
+    
+    # Get exchange rate for foreign currencies
+    exchange_rate = None
+    if is_foreign:
+        exchange_rate = get_exchange_rate_to_sek(currency)
+    
     currency_symbol = {
         "SEK": "kr ", 
         "NOK": "kr ", 
@@ -76,15 +135,37 @@ def format_stock_data(data: dict) -> str:
         "EUR": "€",
         "USD": "$", 
         "JPY": "¥", 
-        "GBP": "£"
+        "GBP": "£",
+        "CHF": "CHF ",
+        "CNY": "¥",
+        "HKD": "HK$",
+        "KRW": "₩",
     }.get(currency, currency + " ")
+    
+    def format_with_sek(value, prefix=""):
+        """Format a value with optional SEK equivalent for foreign stocks."""
+        if value is None:
+            return "N/A"
+        native = f"{prefix}{currency_symbol}{format_number(value)}"
+        if is_foreign and exchange_rate:
+            sek_value = value * exchange_rate
+            sek_formatted = format_number(sek_value)
+            return f"{native} (~{sek_formatted} kr SEK)"
+        return native
     
     lines = [
         f"**{data.get('name', data['ticker'])}** ({data['ticker']})",
         f"Exchange: {data.get('exchange', 'N/A')} | Sector: {data.get('sector', 'N/A')}",
+    ]
+    
+    # Show exchange rate info for foreign stocks
+    if is_foreign and exchange_rate:
+        lines.append(f"*Currency: {currency} (1 {currency} ≈ {exchange_rate:.4f} SEK)*")
+    
+    lines.extend([
         "",
-        f"**Current Price:** {currency_symbol}{format_number(data.get('price'))}",
-        f"**Market Cap:** {format_number(data.get('market_cap'), currency_symbol)}",
+        f"**Current Price:** {format_with_sek(data.get('price'))}",
+        f"**Market Cap:** {format_with_sek(data.get('market_cap'))}",
         "",
         "**Valuation:**",
         f"  • P/E Ratio (TTM): {format_number(data.get('pe_ratio'))}",
@@ -92,12 +173,12 @@ def format_stock_data(data: dict) -> str:
         f"  • Dividend Yield: {format_number(data.get('dividend_yield'), suffix='%') if data.get('dividend_yield') else 'N/A'}",
         "",
         "**Price Range (52 Week):**",
-        f"  • High: {currency_symbol}{format_number(data.get('52_week_high'))}",
-        f"  • Low: {currency_symbol}{format_number(data.get('52_week_low'))}",
+        f"  • High: {format_with_sek(data.get('52_week_high'))}",
+        f"  • Low: {format_with_sek(data.get('52_week_low'))}",
         "",
         "**Moving Averages:**",
-        f"  • 50-Day: {currency_symbol}{format_number(data.get('50_day_avg'))}",
-        f"  • 200-Day: {currency_symbol}{format_number(data.get('200_day_avg'))}",
+        f"  • 50-Day: {format_with_sek(data.get('50_day_avg'))}",
+        f"  • 200-Day: {format_with_sek(data.get('200_day_avg'))}",
         "",
         f"**Volume:** {format_number(data.get('volume'))} (Avg: {format_number(data.get('avg_volume'))})",
     ]
