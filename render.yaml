@@ -4,8 +4,10 @@ services:
     runtime: python
     buildCommand: |
       pip install --upgrade pip
-      pip install -r requirements.txt
-      playwright install --with-deps chromium
+      grep -v "pywin32\|pyreadline3" requirements.txt > requirements-linux.txt
+      uv pip install -r requirements-linux.txt
+      playwright install chromium
+      playwright install-deps chromium
     startCommand: streamlit run src/app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
     envVars:
       - key: GEMINI_API_KEY
