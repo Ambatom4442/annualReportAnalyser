@@ -865,6 +865,21 @@ def render_generate_view():
             </div>
             """.format(document_name), unsafe_allow_html=True)
             
+            # Add Supporting Source button and menu
+            if current_doc_id:
+                try:
+                    from ui.attachment_component import render_attachment_button, render_attachment_menu
+                    secondary_processor = get_secondary_processor()
+                    show_menu = render_attachment_button()
+                    
+                    if show_menu:
+                        render_attachment_menu(
+                            parent_doc_id=current_doc_id,
+                            processor=secondary_processor
+                        )
+                except ImportError:
+                    pass
+            
             # Secondary Sources Management
             if current_doc_id:
                 try:
