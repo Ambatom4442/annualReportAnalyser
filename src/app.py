@@ -793,6 +793,7 @@ def render_generate_view():
             
             # Load saved selections if available
             doc_store = get_document_store()
+            chat_store = get_chat_store()
             saved_selections = None
             current_doc_id = st.session_state.get("current_doc_id")
             
