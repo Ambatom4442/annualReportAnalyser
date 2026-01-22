@@ -865,6 +865,20 @@ def render_generate_view():
             </div>
             """.format(document_name), unsafe_allow_html=True)
             
+            # Secondary Sources Management
+            if current_doc_id:
+                try:
+                    from ui.attachment_component import render_manage_sources_modal
+                    secondary_store = get_secondary_store()
+                    secondary_processor = get_secondary_processor()
+                    render_manage_sources_modal(
+                        parent_doc_id=current_doc_id,
+                        secondary_store=secondary_store,
+                        processor=secondary_processor
+                    )
+                except ImportError:
+                    pass
+            
             # Get or create chat agent
             vec_store = get_vector_store()
             doc_store = get_document_store()

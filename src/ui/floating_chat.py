@@ -140,7 +140,9 @@ def render_floating_chat_toggle():
 def render_floating_chat_panel(
     agent: Any,
     current_doc_id: Optional[str] = None,
-    document_name: str = "Document"
+    document_name: str = "Document",
+    secondary_store: Optional[Any] = None,
+    secondary_processor: Optional[Any] = None
 ) -> None:
     """
     Render the floating chat panel in the sidebar area.
@@ -152,6 +154,8 @@ def render_floating_chat_panel(
         agent: CommentGeneratorAgent with chat capabilities
         current_doc_id: Current document ID for context
         document_name: Name of the current document
+        secondary_store: SecondarySourceStore instance for managing sources
+        secondary_processor: SecondarySourceProcessor instance for processing
     """
     init_floating_chat_state()
     
@@ -171,6 +175,18 @@ def render_floating_chat_panel(
         if st.button("✕", key="close_floating_chat", help="Close chat"):
             st.session_state.floating_chat_open = False
             st.rerun()
+    
+    # Secondary Sources Management - Add before chat
+    if secondary_store and current_doc_id:
+        try:
+            from ui.attachment_component import render_manage_sources_modal
+            render_manage_sources_modal(
+                parent_doc_id=current_doc_id,
+                secondary_store=secondary_store,
+                processor=secondary_processor
+            )
+        except ImportError:
+            pass
     
     # Chat messages container
     chat_container = st.container(height=300)
