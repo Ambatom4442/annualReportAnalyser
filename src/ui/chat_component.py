@@ -129,18 +129,50 @@ def render_chat_interface(
         with sel_col3:
             if st.session_state.selection_mode and st.session_state.selected_messages:
                 if st.button("📝 Create Summary", type="primary", use_container_width=True):
-                    # Get selected messages
-                    messages = st.session_state[chat_key]
-                    selected_msgs = [
-                        messages[i] for i in sorted(st.session_state.selected_messages)
-                        if i < len(messages)
-                    ]
-                    
+                    st.session_state.show_main_summary_dialog = True
+                    st.rerun()
+    
+    # Summary title dialog for main chat
+    if st.session_state.get("show_main_summary_dialog", False):
+        from datetime import datetime
+        with st.form("main_summary_title_form"):
+            st.write("**📝 Name Your Summary**")
+            summary_title = st.text_input(
+                "Title",
+                value=f"Research Summary - {datetime.now().strftime('%b %d, %H:%M')}",
+                help="Give your summary a descriptive name"
+            )
+            
+            col_save, col_cancel = st.columns(2)
+            with col_save:
+                save_clicked = st.form_submit_button("💾 Save", use_container_width=True)
+            with col_cancel:
+                cancel_clicked = st.form_submit_button("Cancel", use_container_width=True)
+            
+            if save_clicked:
+                messages = st.session_state[chat_key]
+                selected_msgs = [
+                    messages[i] for i in sorted(st.session_state.selected_messages)
+                    if i < len(messages)
+                ]
+                
+                if selected_msgs:
                     with st.spinner("🤖 Generating research summary..."):
                         summary = generate_research_summary(selected_msgs, agent)
-                        st.session_state.research_summary = summary
-                    st.success("✅ Summary created! View it in Generate Comment step")
-                    st.rerun()
+                        if summary and chat_store:
+                            chat_store.save_summary(
+                                title=summary_title,
+                                content=summary,
+                                doc_id=current_doc_id,
+                                source_type="main"
+                            )
+                            st.session_state.show_main_summary_dialog = False
+                            st.success(f"✅ Summary '{summary_title}' saved!")
+                            st.rerun()
+            
+            if cancel_clicked:
+                st.session_state.show_main_summary_dialog = False
+                st.rerun()
     
     # Display chat history with optional selection
     if show_history and st.session_state[chat_key]:

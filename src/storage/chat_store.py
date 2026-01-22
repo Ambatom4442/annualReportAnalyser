@@ -39,6 +39,22 @@ class ChatStore:
                 CREATE INDEX IF NOT EXISTS idx_chat_type 
                 ON chat_history(doc_id, chat_type)
             """)
+            
+            # Research summaries table - separate from chat history
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS research_summaries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    doc_id TEXT,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    source_type TEXT NOT NULL DEFAULT 'quick',
+                    created_at TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_summary_doc_id 
+                ON research_summaries(doc_id)
+            """)
             conn.commit()
     
     def save_message(
@@ -173,4 +189,144 @@ class ChatStore:
                     SELECT COUNT(*) FROM chat_history
                     WHERE doc_id = ?
                 """, (doc_id,))
+            return cursor.fetchone()[0]
+
+    # ==================== Research Summaries ====================
+    
+    def save_summary(
+        self,
+        title: str,
+        content: str,
+        doc_id: Optional[str] = None,
+        source_type: str = "quick"
+    ) -> int:
+        """
+        Save a research summary.
+        
+        Args:
+            title: User-provided or auto-generated title
+            content: The summary content
+            doc_id: Optional document ID (None for general summaries)
+            source_type: "main" (Chat with Documents) or "quick" (Quick Chat)
+        
+        Returns:
+            Summary ID
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("""
+                INSERT INTO research_summaries (doc_id, title, content, source_type, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                doc_id,
+                title,
+                content,
+                source_type,
+                datetime.now().isoformat()
+            ))
+            conn.commit()
+            return cursor.lastrowid
+    
+    def get_summaries(self, doc_id: Optional[str] = None) -> List[Dict]:
+        """
+        Get research summaries.
+        
+        Args:
+            doc_id: Optional document ID filter. If None, returns all summaries.
+        
+        Returns:
+            List of summary dictionaries
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            
+            if doc_id:
+                # Get summaries for specific doc OR general summaries (doc_id is NULL)
+                cursor = conn.execute("""
+                    SELECT id, doc_id, title, content, source_type, created_at
+                    FROM research_summaries
+                    WHERE doc_id = ? OR doc_id IS NULL
+                    ORDER BY created_at DESC
+                """, (doc_id,))
+            else:
+                cursor = conn.execute("""
+                    SELECT id, doc_id, title, content, source_type, created_at
+                    FROM research_summaries
+                    ORDER BY created_at DESC
+                """)
+            
+            rows = cursor.fetchall()
+            return [
+                {
+                    "id": row["id"],
+                    "doc_id": row["doc_id"],
+                    "title": row["title"],
+                    "content": row["content"],
+                    "source_type": row["source_type"],
+                    "created_at": row["created_at"]
+                }
+                for row in rows
+            ]
+    
+    def get_summary_by_id(self, summary_id: int) -> Optional[Dict]:
+        """Get a specific summary by ID."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("""
+                SELECT id, doc_id, title, content, source_type, created_at
+                FROM research_summaries
+                WHERE id = ?
+            """, (summary_id,))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "id": row["id"],
+                    "doc_id": row["doc_id"],
+                    "title": row["title"],
+                    "content": row["content"],
+                    "source_type": row["source_type"],
+                    "created_at": row["created_at"]
+                }
+            return None
+    
+    def delete_summary(self, summary_id: int) -> bool:
+        """Delete a research summary by ID."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("""
+                DELETE FROM research_summaries
+                WHERE id = ?
+            """, (summary_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+    
+    def delete_all_summaries(self, doc_id: Optional[str] = None) -> int:
+        """
+        Delete all summaries, optionally filtered by document.
+        
+        Args:
+            doc_id: Optional document ID. If None, deletes ALL summaries.
+        
+        Returns:
+            Number of summaries deleted
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            if doc_id:
+                cursor = conn.execute("""
+                    DELETE FROM research_summaries
+                    WHERE doc_id = ?
+                """, (doc_id,))
+            else:
+                cursor = conn.execute("DELETE FROM research_summaries")
+            conn.commit()
+            return cursor.rowcount
+    
+    def get_summary_count(self, doc_id: Optional[str] = None) -> int:
+        """Get count of summaries."""
+        with sqlite3.connect(self.db_path) as conn:
+            if doc_id:
+                cursor = conn.execute("""
+                    SELECT COUNT(*) FROM research_summaries
+                    WHERE doc_id = ? OR doc_id IS NULL
+                """, (doc_id,))
+            else:
+                cursor = conn.execute("SELECT COUNT(*) FROM research_summaries")
             return cursor.fetchone()[0]

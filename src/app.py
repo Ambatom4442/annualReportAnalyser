@@ -805,7 +805,8 @@ def render_generate_view():
                 analyzed_charts=st.session_state.analyzed_charts or [],
                 saved_selections=saved_selections,
                 doc_id=current_doc_id,
-                document_store=doc_store
+                document_store=doc_store,
+                chat_store=chat_store
             )
             
             if result is not None:
@@ -958,26 +959,55 @@ def render_generate_view():
                     if st.session_state.quick_selection_mode and st.session_state.quick_selected_messages:
                         selected_count = len(st.session_state.quick_selected_messages)
                         if st.button(f"📝 Summary ({selected_count})", key="quick_create_summary", use_container_width=True):
-                            # Get selected messages
-                            messages = st.session_state[quick_chat_key]
-                            selected_msgs = [
-                                messages[i] for i in sorted(st.session_state.quick_selected_messages)
-                                if i < len(messages)
-                            ]
-                            
-                            if selected_msgs:
-                                with st.spinner("🤖 Creating summary..."):
-                                    # Generate summary
-                                    from ui.chat_component import generate_research_summary
-                                    summary = generate_research_summary(selected_msgs, agent)
-                                    if summary:
-                                        st.session_state.research_summary = summary
-                                        st.success("✅ Summary created! View it in Step 3 - Generate Comment")
-                                    else:
-                                        st.error("Failed to generate summary - no content returned")
-                                st.rerun()
-                            else:
-                                st.warning("No messages selected")
+                            st.session_state.show_summary_dialog = True
+                            st.rerun()
+            
+            # Summary title dialog
+            if st.session_state.get("show_summary_dialog", False):
+                with st.form("summary_title_form"):
+                    st.write("**📝 Name Your Summary**")
+                    summary_title = st.text_input(
+                        "Title",
+                        value=f"Research Summary - {datetime.now().strftime('%b %d, %H:%M')}",
+                        help="Give your summary a descriptive name"
+                    )
+                    
+                    col_save, col_cancel = st.columns(2)
+                    with col_save:
+                        save_clicked = st.form_submit_button("💾 Save", use_container_width=True)
+                    with col_cancel:
+                        cancel_clicked = st.form_submit_button("Cancel", use_container_width=True)
+                    
+                    if save_clicked:
+                        # Get selected messages
+                        messages = st.session_state[quick_chat_key]
+                        selected_msgs = [
+                            messages[i] for i in sorted(st.session_state.quick_selected_messages)
+                            if i < len(messages)
+                        ]
+                        
+                        if selected_msgs:
+                            with st.spinner("🤖 Creating summary..."):
+                                from ui.chat_component import generate_research_summary
+                                summary = generate_research_summary(selected_msgs, agent)
+                                if summary:
+                                    # Save to database
+                                    current_doc = st.session_state.get("current_doc_id")
+                                    chat_store.save_summary(
+                                        title=summary_title,
+                                        content=summary,
+                                        doc_id=current_doc,
+                                        source_type="quick"
+                                    )
+                                    st.session_state.show_summary_dialog = False
+                                    st.success(f"✅ Summary '{summary_title}' saved!")
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to generate summary")
+                    
+                    if cancel_clicked:
+                        st.session_state.show_summary_dialog = False
+                        st.rerun()
             
             # Chat messages container
             chat_container = st.container(height=400)

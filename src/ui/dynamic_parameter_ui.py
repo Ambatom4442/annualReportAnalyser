@@ -13,7 +13,8 @@ def render_dynamic_parameter_ui(
     analyzed_charts: List[Dict[str, Any]] = None,
     saved_selections: Optional[Dict[str, Any]] = None,
     doc_id: Optional[str] = None,
-    document_store = None
+    document_store = None,
+    chat_store = None
 ) -> Optional[tuple]:
     """
     Render a dynamic UI based on AI-discovered document content.
@@ -24,6 +25,7 @@ def render_dynamic_parameter_ui(
         saved_selections: Previously saved user selections (loaded from DB)
         doc_id: Document ID for saving selections
         document_store: DocumentStore instance for persistence
+        chat_store: ChatStore instance for research summaries
         
     Returns:
         Tuple of (CommentParameters, content_selections dict) if submitted, None otherwise
@@ -170,30 +172,61 @@ def render_dynamic_parameter_ui(
     
     st.divider()
     
-    # Research Summary Section (if available from chat)
-    research_summary = st.session_state.get("research_summary", "")
+    # Research Summaries Section (from database - persistent)
+    summaries = []
+    if chat_store:
+        summaries = chat_store.get_summaries(doc_id=doc_id)
     
-    if research_summary:
-        st.subheader("📊 Research Summary")
-        st.info("💡 This summary was generated from your chat research. It will be included in comment generation.")
+    # Initialize selected summaries in session state
+    if "selected_summary_ids" not in st.session_state:
+        st.session_state.selected_summary_ids = set()
+    
+    combined_summary_content = ""
+    
+    if summaries:
+        st.subheader(f"📊 Research Summaries ({len(summaries)})")
+        st.info("💡 Select summaries to include in comment generation. These persist across sessions.")
         
-        with st.expander("View Research Summary", expanded=True):
-            st.markdown(research_summary)
+        # Display each summary with checkbox
+        for summary in summaries:
+            summary_id = summary["id"]
+            created = summary["created_at"][:16].replace("T", " ")  # Format datetime
+            
+            col_check, col_title, col_delete = st.columns([1, 10, 1])
+            
+            with col_check:
+                is_selected = summary_id in st.session_state.selected_summary_ids
+                if st.checkbox(
+                    "Select summary",
+                    value=is_selected,
+                    key=f"summary_sel_{summary_id}",
+                    label_visibility="collapsed"
+                ):
+                    st.session_state.selected_summary_ids.add(summary_id)
+                else:
+                    st.session_state.selected_summary_ids.discard(summary_id)
+            
+            with col_title:
+                with st.expander(f"**{summary['title']}** ({created})", expanded=False):
+                    st.markdown(summary["content"])
+            
+            with col_delete:
+                if st.button("🗑️", key=f"del_summary_{summary_id}", help="Delete this summary"):
+                    chat_store.delete_summary(summary_id)
+                    st.session_state.selected_summary_ids.discard(summary_id)
+                    st.rerun()
         
-        use_research = st.checkbox(
-            "Include research summary in comment generation", 
-            value=True,
-            help="Uncheck to exclude the research summary from comment generation"
-        )
-        
-        if st.button("🗑️ Clear Research Summary", key="clear_research_summary"):
-            st.session_state.research_summary = ""
-            st.session_state.selected_messages = set()
-            st.rerun()
+        # Build combined summary from selected
+        selected_summaries = [s for s in summaries if s["id"] in st.session_state.selected_summary_ids]
+        if selected_summaries:
+            combined_summary_content = "\n\n---\n\n".join([
+                f"### {s['title']}\n{s['content']}" for s in selected_summaries
+            ])
         
         st.divider()
-    else:
-        use_research = False
+    
+    use_research = bool(combined_summary_content)
+    research_summary = combined_summary_content
     
     # Custom Instructions (required as per user request)
     st.subheader("✨ Custom Instructions")
