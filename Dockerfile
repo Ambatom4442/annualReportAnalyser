@@ -37,9 +37,9 @@ COPY main.py ./
 COPY .python-version ./
 COPY .streamlit/ ./.streamlit/
 
-# Create data directories with proper permissions
-RUN mkdir -p /app/.data /app/.data/chroma_db /app/.data/documents && \
-    chmod -R 777 /app/.data
+# Create data directories with proper permissions (in src/.data, not root)
+RUN mkdir -p /app/src/.data /app/src/.data/chroma_db /app/src/.data/documents && \
+    chmod -R 777 /app/src/.data
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser && \

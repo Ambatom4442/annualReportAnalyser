@@ -28,7 +28,8 @@ class Config:
     MAX_PDF_PAGES: int = 20
     
     # Storage settings
-    DATA_DIR: Path = Path(os.getenv("DATA_DIR", ".data"))
+    # Use path relative to this config file (src/.data), not current working directory
+    DATA_DIR: Path = Path(__file__).parent / Path(os.getenv("DATA_DIR", ".data"))
     CHROMA_COLLECTION_NAME: str = "documents"
     
     # UI settings

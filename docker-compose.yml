@@ -25,8 +25,8 @@ services:
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
       - PYTHONPATH=/app/src
     volumes:
-      # Persist data across container restarts
-      - app-data:/app/.data
+      # Persist data across container restarts (in src/.data)
+      - app-data:/app/src/.data
       # Mount .env file if exists (for local dev)
       # - ./.env:/app/.env:ro
     restart: unless-stopped
