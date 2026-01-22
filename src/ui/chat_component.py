@@ -10,7 +10,8 @@ def render_chat_interface(
     current_doc_id: Optional[str] = None,
     show_history: bool = True,
     secondary_processor: Optional[Any] = None,
-    secondary_store: Optional[Any] = None
+    secondary_store: Optional[Any] = None,
+    chat_store: Optional[Any] = None
 ) -> None:
     """
     Render a chat interface for document Q&A with attachment support.
@@ -21,12 +22,23 @@ def render_chat_interface(
         show_history: Whether to show chat history
         secondary_processor: SecondarySourceProcessor for handling attachments
         secondary_store: SecondarySourceStore for managing sources
+        chat_store: ChatStore for persisting chat history
     """
     st.subheader("💬 Chat with Documents")
     
-    # Initialize chat history in session state
-    if "chat_messages" not in st.session_state:
-        st.session_state.chat_messages = []
+    # Initialize chat history - load from database if available
+    chat_key = f"chat_messages_{current_doc_id}" if current_doc_id else "chat_messages"
+    
+    if chat_key not in st.session_state:
+        # Try to load from database
+        if chat_store and current_doc_id:
+            saved_messages = chat_store.get_messages(current_doc_id, chat_type="main")
+            st.session_state[chat_key] = [
+                {"role": msg["role"], "content": msg["content"]}
+                for msg in saved_messages
+            ]
+        else:
+            st.session_state[chat_key] = []
     
     # Show attached sources bar if any
     if secondary_processor:
@@ -41,10 +53,10 @@ def render_chat_interface(
             pass
     
     # Display chat history
-    if show_history and st.session_state.chat_messages:
+    if show_history and st.session_state[chat_key]:
         chat_container = st.container(height=400)
         with chat_container:
-            for msg in st.session_state.chat_messages:
+            for msg in st.session_state[chat_key]:
                 with st.chat_message(msg["role"]):
                     st.markdown(msg["content"])
     
@@ -76,10 +88,14 @@ def render_chat_interface(
     # Chat input
     if prompt := st.chat_input("Ask about the documents..."):
         # Add user message
-        st.session_state.chat_messages.append({
+        st.session_state[chat_key].append({
             "role": "user",
             "content": prompt
         })
+        
+        # Save to database
+        if chat_store and current_doc_id:
+            chat_store.save_message(current_doc_id, "user", prompt, chat_type="main")
         
         # Display user message
         with st.chat_message("user"):
@@ -93,23 +109,30 @@ def render_chat_interface(
                     st.markdown(response)
                     
                     # Add assistant message
-                    st.session_state.chat_messages.append({
+                    st.session_state[chat_key].append({
                         "role": "assistant",
                         "content": response
                     })
+                    
+                    # Save to database
+                    if chat_store and current_doc_id:
+                        chat_store.save_message(current_doc_id, "assistant", response, chat_type="main")
                 except Exception as e:
                     error_msg = f"Error: {str(e)}"
                     st.error(error_msg)
-                    st.session_state.chat_messages.append({
+                    st.session_state[chat_key].append({
                         "role": "assistant",
                         "content": error_msg
                     })
     
     # Bottom controls - Clear Chat button
     if st.button("🗑️ Clear Chat"):
-        st.session_state.chat_messages = []
+        st.session_state[chat_key] = []
         if hasattr(agent, 'clear_memory'):
             agent.clear_memory()
+        # Clear from database
+        if chat_store and current_doc_id:
+            chat_store.clear_history(current_doc_id, chat_type="main")
         # Also reset the agent in session state to get fresh memory
         if "chat_agent" in st.session_state:
             del st.session_state.chat_agent

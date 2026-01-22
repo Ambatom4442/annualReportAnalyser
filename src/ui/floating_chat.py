@@ -142,7 +142,8 @@ def render_floating_chat_panel(
     current_doc_id: Optional[str] = None,
     document_name: str = "Document",
     secondary_store: Optional[Any] = None,
-    secondary_processor: Optional[Any] = None
+    secondary_processor: Optional[Any] = None,
+    chat_store: Optional[Any] = None
 ) -> None:
     """
     Render the floating chat panel in the sidebar area.
@@ -156,12 +157,25 @@ def render_floating_chat_panel(
         document_name: Name of the current document
         secondary_store: SecondarySourceStore instance for managing sources
         secondary_processor: SecondarySourceProcessor instance for processing
+        chat_store: ChatStore instance for persistent chat history
     """
     init_floating_chat_state()
     
     # Check if chat should be shown
     if not st.session_state.floating_chat_open:
         return
+    
+    # Use per-document message key for quick chat
+    quick_chat_key = f"floating_chat_messages_{current_doc_id}" if current_doc_id else "floating_chat_messages"
+    
+    # Initialize per-document messages from database if available
+    if quick_chat_key not in st.session_state:
+        if chat_store and current_doc_id:
+            # Load existing messages from database
+            db_messages = chat_store.get_messages(current_doc_id, chat_type="quick")
+            st.session_state[quick_chat_key] = db_messages
+        else:
+            st.session_state[quick_chat_key] = []
     
     # Render chat panel in the right portion of the screen
     st.markdown("---")
@@ -192,43 +206,52 @@ def render_floating_chat_panel(
     chat_container = st.container(height=300)
     
     with chat_container:
-        if not st.session_state.floating_chat_messages:
+        if not st.session_state[quick_chat_key]:
             st.info("💡 Ask questions about the document while generating your comment!")
         else:
-            for msg in st.session_state.floating_chat_messages:
+            for msg in st.session_state[quick_chat_key]:
                 with st.chat_message(msg["role"]):
                     st.markdown(msg["content"])
     
     # Chat input
     if prompt := st.chat_input("Ask about the document...", key="floating_chat_input"):
         # Add user message
-        st.session_state.floating_chat_messages.append({
-            "role": "user",
-            "content": prompt
-        })
+        user_msg = {"role": "user", "content": prompt}
+        st.session_state[quick_chat_key].append(user_msg)
+        
+        # Save to database
+        if chat_store and current_doc_id:
+            chat_store.save_message(current_doc_id, "user", prompt, chat_type="quick")
         
         # Get agent response
         with st.spinner("Thinking..."):
             try:
                 response = agent.chat(prompt, doc_id=current_doc_id)
-                st.session_state.floating_chat_messages.append({
-                    "role": "assistant",
-                    "content": response
-                })
+                assistant_msg = {"role": "assistant", "content": response}
+                st.session_state[quick_chat_key].append(assistant_msg)
+                
+                # Save to database
+                if chat_store and current_doc_id:
+                    chat_store.save_message(current_doc_id, "assistant", response, chat_type="quick")
             except Exception as e:
                 error_msg = f"Error: {str(e)}"
-                st.session_state.floating_chat_messages.append({
-                    "role": "assistant",
-                    "content": error_msg
-                })
+                assistant_msg = {"role": "assistant", "content": error_msg}
+                st.session_state[quick_chat_key].append(assistant_msg)
+                
+                # Save error to database too
+                if chat_store and current_doc_id:
+                    chat_store.save_message(current_doc_id, "assistant", error_msg, chat_type="quick")
         st.rerun()
     
     # Clear chat button
-    if st.session_state.floating_chat_messages:
+    if st.session_state[quick_chat_key]:
         if st.button("🗑️ Clear Chat", key="clear_floating_chat"):
-            st.session_state.floating_chat_messages = []
+            st.session_state[quick_chat_key] = []
             if hasattr(agent, 'clear_memory'):
                 agent.clear_memory()
+            # Clear from database
+            if chat_store and current_doc_id:
+                chat_store.clear_history(current_doc_id, chat_type="quick")
             st.rerun()
 
 
