@@ -1,70 +1,27 @@
 # =============================================================================
-# Docker Ignore - Exclude unnecessary files from Docker build context
+# Docker Ignore - Exclude only essential files from Docker build context
 # =============================================================================
 
-# Git
-.git/
-.gitignore
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+# Virtual environment (use container's own)
 .venv/
 venv/
 ENV/
 env/
-.eggs/
-*.egg-info/
-*.egg
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
-
-# Build
-build/
-dist/
-*.manifest
-*.spec
-
-# Local data (will be mounted or recreated)
-.data/
-*.db
-*.sqlite
-*.sqlite3
-
-# Environment files (secrets - pass via env vars instead)
+# Environment file with secrets (pass via env vars instead)
 .env
-.env.*
-!.env.example
 
-# Documentation and misc
-*.md
-!README.md
-docs/
-*.log
-*.tmp
+# Git
+.git/
 
-# Task management
-.taskmaster/
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local data (will be mounted or recreated in container)
+.data/
 
 # OS files
 .DS_Store
 Thumbs.db
-*.bak
-
-# Local development
-check_models.py
-flow.md
