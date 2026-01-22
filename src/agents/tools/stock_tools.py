@@ -1,5 +1,6 @@
 """
 Stock data tools for fetching real-time market data.
+Focused on Swedish/Nordic markets (OMX Stockholm) with SEK currency.
 """
 from typing import Optional, List
 from langchain.tools import tool
@@ -10,7 +11,7 @@ def get_stock_info(ticker: str) -> dict:
     Fetch stock data using yfinance.
     
     Args:
-        ticker: Stock ticker symbol (e.g., "AAPL", "7203.T" for Toyota Tokyo)
+        ticker: Stock ticker symbol (e.g., "VOLV-B.ST" for Volvo, "ERIC-B.ST" for Ericsson)
     
     Returns:
         Dictionary with stock data
@@ -26,7 +27,7 @@ def get_stock_info(ticker: str) -> dict:
             "ticker": ticker,
             "name": info.get("longName", info.get("shortName", ticker)),
             "price": info.get("currentPrice", info.get("regularMarketPrice")),
-            "currency": info.get("currency", "USD"),
+            "currency": info.get("currency", "SEK"),
             "market_cap": info.get("marketCap"),
             "pe_ratio": info.get("trailingPE"),
             "forward_pe": info.get("forwardPE"),
@@ -67,8 +68,16 @@ def format_stock_data(data: dict) -> str:
                 return f"{prefix}{n:.2f}{suffix}"
         return f"{prefix}{n}{suffix}"
     
-    currency = data.get("currency", "USD")
-    currency_symbol = {"USD": "$", "JPY": "¥", "EUR": "€", "GBP": "£"}.get(currency, currency + " ")
+    currency = data.get("currency", "SEK")
+    currency_symbol = {
+        "SEK": "kr ", 
+        "NOK": "kr ", 
+        "DKK": "kr ",
+        "EUR": "€",
+        "USD": "$", 
+        "JPY": "¥", 
+        "GBP": "£"
+    }.get(currency, currency + " ")
     
     lines = [
         f"**{data.get('name', data['ticker'])}** ({data['ticker']})",
@@ -103,18 +112,20 @@ def format_stock_data(data: dict) -> str:
 def get_stock_data(company_or_ticker: str) -> str:
     """
     Fetch real-time stock market data for a company or ticker symbol.
+    Focused on Swedish/Nordic markets (OMX Stockholm) with SEK currency.
     
     Use this tool when user asks about stock prices, market data, or company valuations.
     
     Args:
         company_or_ticker: Company name OR stock ticker symbol. Examples:
-            - Company names: "Sony", "Toyota", "Apple", "Microsoft"
-            - US tickers: "AAPL", "MSFT", "GOOGL"
-            - Japanese tickers: "7203.T" (Toyota), "6758.T" (Sony)
-            - European tickers: "BMW.DE" (BMW), "NESN.SW" (Nestle)
+            - Swedish companies: "Volvo", "Ericsson", "H&M", "ABB", "Atlas Copco"
+            - Swedish tickers: "VOLV-B.ST", "ERIC-B.ST", "HM-B.ST"
+            - Nordic tickers: "NOVO-B.CO" (Novo Nordisk), "EQNR.OL" (Equinor)
+            - Other markets: "AAPL" (US), "7203.T" (Japan)
     
     Returns:
         Formatted stock data including current price, market cap, P/E ratio, etc.
+        All Swedish stocks displayed in SEK (Swedish Krona).
     """
     # Resolve company name to ticker if needed
     ticker = resolve_ticker(company_or_ticker)
@@ -128,46 +139,100 @@ def create_stock_tool():
 
 
 # Common ticker mappings for convenience
+# Swedish stocks use .ST suffix (Stockholm Stock Exchange)
 COMMON_TICKERS = {
-    # Japanese companies (Tokyo Stock Exchange)
-    "toyota": "7203.T",
-    "sony": "6758.T",
-    "honda": "7267.T",
-    "nintendo": "7974.T",
-    "softbank": "9984.T",
-    "hitachi": "6501.T",
-    "mitsubishi ufj": "8306.T",
-    "sumitomo mitsui": "8316.T",
-    "keyence": "6861.T",
-    "recruit": "6098.T",
-    "tokio marine": "8766.T",
-    "fast retailing": "9983.T",
-    "mizuho": "8411.T",
-    "itochu": "8001.T",
-    "tokyo electron": "8035.T",
+    # Swedish companies (OMX Stockholm - Nasdaq Stockholm)
+    "volvo": "VOLV-B.ST",
+    "ericsson": "ERIC-B.ST",
+    "h&m": "HM-B.ST",
+    "hm": "HM-B.ST",
+    "hennes & mauritz": "HM-B.ST",
+    "atlas copco": "ATCO-A.ST",
+    "abb": "ABB.ST",
+    "sandvik": "SAND.ST",
+    "seb": "SEB-A.ST",
+    "swedbank": "SWED-A.ST",
+    "handelsbanken": "SHB-A.ST",
+    "nordea": "NDA-SE.ST",
+    "investor": "INVE-B.ST",
+    "essity": "ESSITY-B.ST",
+    "hexagon": "HEXA-B.ST",
+    "assa abloy": "ASSA-B.ST",
+    "skf": "SKF-B.ST",
+    "telia": "TELIA.ST",
+    "electrolux": "ELUX-B.ST",
+    "epiroc": "EPI-A.ST",
+    "securitas": "SECU-B.ST",
+    "svenska cellulosa": "SCA-B.ST",
+    "sca": "SCA-B.ST",
+    "boliden": "BOL.ST",
+    "husqvarna": "HUSQ-B.ST",
+    "alfa laval": "ALFA.ST",
+    "getinge": "GETI-B.ST",
+    "nibe": "NIBE-B.ST",
+    "evolution": "EVO.ST",
+    "evolution gaming": "EVO.ST",
+    "spotify": "SPOT",  # US listed but Swedish company
+    "kinnevik": "KINV-B.ST",
+    "latour": "LATO-B.ST",
+    "lundbergföretagen": "LUND-B.ST",
+    "industrivärden": "INDU-C.ST",
+    "trelleborg": "TREL-B.ST",
+    "autoliv": "ALIV-SDB.ST",
+    "saab": "SAAB-B.ST",
+    "skanska": "SKA-B.ST",
+    "ncc": "NCC-B.ST",
+    "peab": "PEAB-B.ST",
+    "castellum": "CAST.ST",
+    "fabege": "FABG.ST",
+    "fastighets balder": "BALD-B.ST",
+    "balder": "BALD-B.ST",
+    "addtech": "ADDT-B.ST",
+    "indutrade": "INDT.ST",
+    "lifco": "LIFCO-B.ST",
+    "thule": "THULE.ST",
+    "dometic": "DOM.ST",
+    "vitrolife": "VITR.ST",
+    "swedish match": "SWMA.ST",
+    "avanza": "AZA.ST",
+    "collector": "COLL.ST",
     
-    # US companies
+    # Other Nordic companies (Denmark, Norway, Finland)
+    "novo nordisk": "NOVO-B.CO",
+    "maersk": "MAERSK-B.CO",
+    "carlsberg": "CARL-B.CO",
+    "vestas": "VWS.CO",
+    "orsted": "ORSTED.CO",
+    "equinor": "EQNR.OL",
+    "telenor": "TEL.OL",
+    "dnb": "DNB.OL",
+    "yara": "YAR.OL",
+    "nokia": "NOKIA.HE",
+    "kone": "KNEBV.HE",
+    "fortum": "FORTUM.HE",
+    
+    # Major international for reference
     "apple": "AAPL",
     "microsoft": "MSFT",
     "google": "GOOGL",
     "amazon": "AMZN",
     "tesla": "TSLA",
     "nvidia": "NVDA",
-    "meta": "META",
 }
 
 
 def resolve_ticker(name_or_ticker: str) -> str:
     """
     Resolve a company name to its ticker symbol.
+    Prioritizes Swedish/Nordic stocks.
     
     Args:
         name_or_ticker: Company name or ticker symbol
     
     Returns:
-        Ticker symbol
+        Ticker symbol (Swedish stocks with .ST suffix)
     """
-    # Check if it's already a ticker
+    # Check if it's already a ticker (has suffix or is all uppercase)
     if "." in name_or_ticker or name_or_ticker.isupper():
         return name_or_ticker
     
@@ -181,5 +246,7 @@ def resolve_ticker(name_or_ticker: str) -> str:
         if name_lower in name or name in name_lower:
             return ticker
     
-    # Return as-is (might be valid ticker)
-    return name_or_ticker.upper()
+    # Default: assume Swedish stock, try with .ST suffix
+    # This helps with Swedish company names not in our list
+    ticker_guess = name_or_ticker.upper().replace(" ", "-")
+    return f"{ticker_guess}.ST"
