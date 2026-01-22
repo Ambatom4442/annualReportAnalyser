@@ -1024,15 +1024,19 @@ def render_generate_view():
                             
                             with msg_col1:
                                 is_selected = idx in st.session_state.quick_selected_messages
-                                if st.checkbox(
+                                new_selected = st.checkbox(
                                     "Select message", 
                                     value=is_selected, 
                                     key=f"quick_sel_msg_{idx}",
                                     label_visibility="collapsed"
-                                ):
+                                )
+                                # Track if selection changed
+                                if new_selected and idx not in st.session_state.quick_selected_messages:
                                     st.session_state.quick_selected_messages.add(idx)
-                                else:
+                                    st.rerun()  # Rerun to update Summary button
+                                elif not new_selected and idx in st.session_state.quick_selected_messages:
                                     st.session_state.quick_selected_messages.discard(idx)
+                                    st.rerun()  # Rerun to update Summary button
                             
                             with msg_col2:
                                 with st.chat_message(msg["role"]):

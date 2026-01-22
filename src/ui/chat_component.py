@@ -185,15 +185,19 @@ def render_chat_interface(
                     
                     with msg_col1:
                         is_selected = idx in st.session_state.selected_messages
-                        if st.checkbox(
+                        new_selected = st.checkbox(
                             "Select message", 
                             value=is_selected, 
                             key=f"sel_msg_{idx}",
                             label_visibility="collapsed"
-                        ):
+                        )
+                        # Track if selection changed and rerun to update button
+                        if new_selected and idx not in st.session_state.selected_messages:
                             st.session_state.selected_messages.add(idx)
-                        else:
+                            st.rerun()
+                        elif not new_selected and idx in st.session_state.selected_messages:
                             st.session_state.selected_messages.discard(idx)
+                            st.rerun()
                     
                     with msg_col2:
                         with st.chat_message(msg["role"]):
