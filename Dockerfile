@@ -4,7 +4,7 @@
 # =============================================================================
 
 # Stage 1: Base image with Playwright browsers pre-installed
-FROM mcr.microsoft.com/playwright/python:v1.49.1-noble
+FROM mcr.microsoft.com/playwright/python:v1.57.0-noble
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
